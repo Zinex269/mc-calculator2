@@ -1,5 +1,11 @@
 name: Build Android APK
 
+# Easy settings: change a value, commit, and the app is rebuilt.
+env:
+  APP_NAME: "MineCal"
+  # 1.0 = your icon fills the whole icon. Lower it (for example 0.9) if the edges look cut off.
+  ICON_SCALE: "1.0"
+
 on:
   push:
     branches: [main]
@@ -27,10 +33,10 @@ jobs:
           npm init -y
           npm install @capacitor/core @capacitor/android
           npm install -D @capacitor/cli @capacitor/assets
-          cat > capacitor.config.json <<'EOF'
+          cat > capacitor.config.json <<EOF
           {
             "appId": "com.example.mccalc",
-            "appName": "Minecraft Calculator",
+            "appName": "$APP_NAME",
             "webDir": "www",
             "android": { "adjustMarginsForEdgeToEdge": "auto" }
           }
@@ -44,15 +50,18 @@ jobs:
           from PIL import Image, ImageDraw, ImageFilter
           N = 1024
           if os.path.exists('icon.png'):
-              # Your own icon: upload a file called icon.png to the repo
+              # Your own icon: the file called icon.png in the repo
               im = Image.open('icon.png').convert('RGBA')
               w, h = im.size; m = min(w, h)
-              im = im.crop(((w - m) // 2, (h - m) // 2, (w - m) // 2 + m, (h - m) // 2 + m))
-              im = im.resize((N, N), Image.LANCZOS)
+              im = im.crop(((w - m) // 2, (h - m) // 2, (w - m) // 2 + m, (h - m) // 2 + m)).resize((N, N), Image.LANCZOS)
               im.save('assets/icon-only.png')
-              Image.new('RGBA', (N, N), im.getpixel((N // 2, 8))[:3] + (255,)).save('assets/icon-background.png')
+              # Behind the icon: a blurred, zoomed copy (only visible when ICON_SCALE is below 1)
+              flat = Image.alpha_composite(Image.new('RGBA', (N, N), (255, 255, 255, 255)), im)
+              zoom = flat.crop((N // 5, N // 5, N - N // 5, N - N // 5)).resize((N, N), Image.LANCZOS)
+              zoom.filter(ImageFilter.GaussianBlur(30)).save('assets/icon-background.png')
+              scale = max(0.3, min(1.0, float(os.environ.get('ICON_SCALE', '1.0'))))
+              s = int(N * scale)
               fg = Image.new('RGBA', (N, N), (0, 0, 0, 0))
-              s = int(N * .66)
               fg.paste(im.resize((s, s), Image.LANCZOS), ((N - s) // 2, (N - s) // 2))
               fg.save('assets/icon-foreground.png')
           else:
@@ -79,6 +88,9 @@ jobs:
               bg.save('assets/icon-background.png')
               block(.42).save('assets/icon-foreground.png')
               Image.alpha_composite(bg, block(.50)).save('assets/icon-only.png')
+          # Launch splash screen: plain colors that match the app, so no logo flashes
+          Image.new('RGB', (2732, 2732), (238, 245, 241)).save('assets/splash.png')
+          Image.new('RGB', (2732, 2732), (18, 26, 29)).save('assets/splash-dark.png')
           PY
 
       - name: Build the APK
@@ -93,5 +105,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MineCal
+          name: minecraft-calculator-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
