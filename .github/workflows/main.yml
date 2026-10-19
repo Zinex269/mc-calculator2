@@ -1,0 +1,97 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Create the Capacitor project
+        run: |
+          mkdir -p www assets
+          cp index.html www/index.html
+          npm init -y
+          npm install @capacitor/core @capacitor/android
+          npm install -D @capacitor/cli @capacitor/assets
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.example.mccalc",
+            "appName": "Minecraft Calculator",
+            "webDir": "www",
+            "android": { "adjustMarginsForEdgeToEdge": "auto" }
+          }
+          EOF
+
+      - name: Make the app icon
+        run: |
+          pip install pillow
+          python3 - <<'PY'
+          import os, random
+          from PIL import Image, ImageDraw, ImageFilter
+          N = 1024
+          if os.path.exists('icon.png'):
+              # Your own icon: upload a file called icon.png to the repo
+              im = Image.open('icon.png').convert('RGBA')
+              w, h = im.size; m = min(w, h)
+              im = im.crop(((w - m) // 2, (h - m) // 2, (w - m) // 2 + m, (h - m) // 2 + m))
+              im = im.resize((N, N), Image.LANCZOS)
+              im.save('assets/icon-only.png')
+              Image.new('RGBA', (N, N), im.getpixel((N // 2, 8))[:3] + (255,)).save('assets/icon-background.png')
+              fg = Image.new('RGBA', (N, N), (0, 0, 0, 0))
+              s = int(N * .66)
+              fg.paste(im.resize((s, s), Image.LANCZOS), ((N - s) // 2, (N - s) // 2))
+              fg.save('assets/icon-foreground.png')
+          else:
+              # No icon.png uploaded: draw the grass block
+              def block(frac):
+                  rnd = random.Random(7)
+                  grass = [(95, 184, 90), (111, 199, 102), (78, 163, 75)]
+                  dirt = [(168, 116, 74), (150, 101, 63), (184, 133, 88)]
+                  px = Image.new('RGB', (12, 12))
+                  for y in range(12):
+                      for x in range(12):
+                          px.putpixel((x, y), rnd.choice(grass) if y < 3 or (y == 3 and rnd.random() < .55) else rnd.choice(dirt))
+                  s = int(N * frac); o = (N - s) // 2
+                  b = px.resize((s, s), Image.NEAREST).convert('RGBA')
+                  m = Image.new('L', (s, s), 0)
+                  ImageDraw.Draw(m).rounded_rectangle([0, 0, s - 1, s - 1], radius=int(s * .12), fill=255)
+                  sm = Image.new('L', (N, N), 0)
+                  ImageDraw.Draw(sm).rounded_rectangle([o, o + s * .06, o + s, o + s * 1.06], radius=int(s * .12), fill=70)
+                  layer = Image.new('RGBA', (N, N), (0, 0, 0, 0))
+                  layer.paste((34, 48, 58, 255), mask=sm.filter(ImageFilter.GaussianBlur(N * .025)))
+                  layer.paste(b, (o, o), m)
+                  return layer
+              bg = Image.new('RGBA', (N, N), (211, 240, 217, 255))
+              bg.save('assets/icon-background.png')
+              block(.42).save('assets/icon-foreground.png')
+              Image.alpha_composite(bg, block(.50)).save('assets/icon-only.png')
+          PY
+
+      - name: Build the APK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          npx cap add android
+          npx capacitor-assets generate --android || echo "Icon step skipped"
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MineCal
+          path: android/app/build/outputs/apk/debug/app-debug.apk
