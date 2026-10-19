@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Minecraft Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ---------- Design tokens ---------- */
+:root {
+  --bg: #eef5f1; --ink: #22303a; --mute: #66767f; --card: #ffffff; --line: #dbe7e1; --field: #f5faf7;
+  --accent: #58b072; --accent-ink: #0f3a22; --warn: #b3541f;
+  --grass: #d3f0d9; --lava: #fddccb; --sky: #d3e6fb; --wood: #f6e6c4; --calc: #e7ddf8;
+  --shadow: 0 14px 32px -16px rgba(34, 48, 58, .35);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121a1d; --ink: #e8f0f2; --mute: #95a7ae; --card: #1b2629; --line: #2a393f; --field: #222f33;
+    --accent: #74cf8e; --accent-ink: #0b2415; --warn: #f0a47a;
+    --grass: #25402e; --lava: #4a3226; --sky: #243a50; --wood: #443b25; --calc: #393050;
+    --shadow: 0 14px 32px -16px #000;
+  }
+}
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; margin: 0; }
+html { -webkit-tap-highlight-color: transparent; }
+button { touch-action: manipulation; } /* no double-tap zoom on keys */
+[hidden] { display: none !important; }
+html { background: var(--bg); }
+body {
+  font: 600 1rem/1.5 Nunito, ui-rounded, system-ui, sans-serif;
+  color: var(--ink);
+  min-height: 100vh;
+  background:
+    radial-gradient(700px 420px at 0 0, var(--grass), transparent 70%),
+    radial-gradient(700px 420px at 100% 0, var(--sky), transparent 70%);
+}
+main { max-width: 640px; margin: auto; padding: calc(28px + env(safe-area-inset-top, 0px)) 18px calc(56px + env(safe-area-inset-bottom, 0px)); }
+h1 { font-size: clamp(2rem, 7vw, 2.8rem); font-weight: 800; line-height: 1.1; }
+h2 { font-size: 1.7rem; font-weight: 800; margin: 10px 0 18px; }
+h3 { font-size: 1rem; font-weight: 700; color: var(--mute); margin: 14px 0 8px; }
+h3:first-child { margin-top: 0; }
+h4 { font-size: .95rem; font-weight: 800; margin: 16px 0 2px; }
+.sub { color: var(--mute); margin: 6px 0 24px; }
+.note { color: var(--mute); font-size: .9rem; margin-top: 4px; }
+.back { display: inline-block; color: var(--mute); text-decoration: none; font-weight: 700; padding: 6px 12px 6px 0; }
+.back:hover { color: var(--ink); }
+.bar { display: flex; justify-content: space-between; align-items: center; }
+.clear {
+  font: inherit; font-weight: 700; color: var(--mute); background: var(--card);
+  border: 0; border-radius: 14px; padding: 8px 16px; box-shadow: var(--shadow); cursor: pointer;
+}
+.clear:hover { color: var(--ink); }
+
+/* ---------- Home tiles ---------- */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.tile {
+  display: grid; gap: 2px; padding: 18px 20px; border-radius: 26px;
+  color: var(--ink); text-decoration: none; box-shadow: var(--shadow); transition: transform .15s;
+}
+.tile:hover { transform: translateY(-2px); }
+.tile .ico { font-size: 1.8rem; }
+.tile b { font-size: 1.1rem; font-weight: 800; }
+.tile small { font-size: .9rem; opacity: .75; }
+.t-grass { background: var(--grass); } .t-lava { background: var(--lava); }
+.t-sky { background: var(--sky); }     .t-wood { background: var(--wood); }
+.t-calc { background: var(--calc); }
+
+/* ---------- Forms ---------- */
+.card { background: var(--card); border-radius: 22px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; }
+label { display: block; margin: 12px 0 6px; color: var(--mute); font-weight: 700; }
+label:first-child { margin-top: 0; }
+input, select {
+  width: 100%; font: inherit; font-weight: 700; color: var(--ink);
+  background: var(--field); border: 2px solid var(--line); border-radius: 14px; padding: 12px 14px;
+}
+.xyz { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Segmented toggle */
+.seg { display: flex; gap: 4px; padding: 4px; background: var(--card); border-radius: 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
+.seg button {
+  flex: 1; font: inherit; font-weight: 700; color: var(--mute);
+  background: none; border: 0; border-radius: 14px; padding: 10px 8px; cursor: pointer;
+}
+.seg .on { background: var(--accent); color: var(--accent-ink); }
+
+/* ---------- Results ---------- */
+.result { background: var(--card); border-radius: 22px; padding: 8px 20px 14px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.result p { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.result p:last-of-type { border: 0; }
+.result span { color: var(--mute); }
+.result b { font-weight: 800; text-align: right; }
+.warn { display: block; padding-top: 8px; font-size: .9rem; color: var(--warn); }
+.out {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 12px; padding: 12px 14px; border-radius: 14px;
+  background: var(--grass); color: var(--ink); font-size: 1.15rem; font-weight: 800;
+}
+.out:empty { display: none; }
+.copy {
+  font: inherit; font-size: .85rem; font-weight: 700; color: var(--ink); background: var(--grass);
+  border: 0; border-radius: 12px; padding: 6px 12px; cursor: pointer;
+}
+.out .copy { background: var(--card); }
+.result .copy { display: block; margin: 12px 0 0 auto; }
+.go {
+  display: block; width: 100%; font: inherit; font-size: 1.05rem; font-weight: 800;
+  color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 18px;
+  padding: 14px; margin: 0 0 16px; box-shadow: var(--shadow); cursor: pointer;
+}
+.go:active { transform: scale(.98); }
+.card .go { margin: 12px 0 0; box-shadow: none; }
+
+/* ---------- Calculator ---------- */
+.display { background: var(--card); border-radius: 22px; padding: 16px 20px; text-align: right; box-shadow: var(--shadow); margin-bottom: 14px; }
+.display .top { display: flex; align-items: center; gap: 10px; }
+.display small { flex: 1; min-height: 1.5em; color: var(--mute); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.display output { display: block; font-size: 2.6rem; font-weight: 800; line-height: 1.2; overflow-x: auto; white-space: nowrap; }
+.keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.keys button {
+  font: inherit; font-size: 1.35rem; font-weight: 800; color: var(--ink);
+  background: var(--card); border: 0; border-radius: 20px; padding: 18px 0; box-shadow: var(--shadow); cursor: pointer;
+}
+.keys button:active { transform: scale(.96); }
+.keys .op { background: var(--calc); }
+.keys .eq { background: var(--accent); color: var(--accent-ink); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- 1. Home -->
+  <section class="page" id="home">
+    <h1>Minecraft Calculator</h1>
+    <p class="sub">Pick a tool to get started.</p>
+    <nav class="grid">
+      <a class="tile t-grass" href="#area"><span class="ico">📐</span><b>Area and block counter</b><small>Blocks inside a box</small></a>
+      <a class="tile t-lava" href="#nether"><span class="ico">🌋</span><b>Nether coordinates</b><small>Convert between dimensions</small></a>
+      <a class="tile t-sky" href="#stacks"><span class="ico">📦</span><b>Stack counter</b><small>Blocks to stacks and back</small></a>
+      <a class="tile t-wood" href="#craft"><span class="ico">🛠️</span><b>Craft counter</b><small>Ingredients for what you build</small></a>
+      <a class="tile t-calc" href="#calc"><span class="ico">🧮</span><b>Calculator</b><small>Regular maths</small></a>
+    </nav>
+  </section>
+
+  <!-- 2. Area and block counter -->
+  <section class="page" id="area" hidden>
+    <div class="bar"><a class="back" href="#home">‹ Home</a><button class="clear" type="button">Clear</button></div>
+    <h2>Area and block counter</h2>
+    <div class="card">
+      <h3>Beginning coordinates</h3>
+      <div class="xyz">
+        <input id="a-x1" type="number" placeholder="X" aria-label="Beginning X">
+        <input id="a-y1" type="number" placeholder="Y" aria-label="Beginning Y">
+        <input id="a-z1" type="number" placeholder="Z" aria-label="Beginning Z">
+      </div>
+      <h3>Ending coordinates</h3>
+      <div class="xyz">
+        <input id="a-x2" type="number" placeholder="X" aria-label="Ending X">
+        <input id="a-y2" type="number" placeholder="Y" aria-label="Ending Y">
+        <input id="a-z2" type="number" placeholder="Z" aria-label="Ending Z">
+      </div>
+    </div>
+    <button class="go" data-tool="area" hidden>Calculate</button>
+    <div class="result" id="area-out" hidden></div>
+    <p class="note">Both corner blocks are counted, so 0 to 4 is 5 blocks.</p>
+  </section>
+
+  <!-- 3. Nether coordinates -->
+  <section class="page" id="nether" hidden>
+    <div class="bar"><a class="back" href="#home">‹ Home</a><button class="clear" type="button">Clear</button></div>
+    <h2>Nether coordinates</h2>
+    <div class="seg" id="nether-dir">
+      <button class="on" data-v="down" aria-pressed="true">Overworld to Nether</button>
+      <button data-v="up" aria-pressed="false">Nether to Overworld</button>
+    </div>
+    <div class="card">
+      <h3 id="nether-title">Overworld coordinates</h3>
+      <div class="xyz">
+        <input id="n-x" type="number" placeholder="X" aria-label="X">
+        <input id="n-y" type="number" placeholder="Y" aria-label="Y">
+        <input id="n-z" type="number" placeholder="Z" aria-label="Z">
+      </div>
+    </div>
+    <button class="go" data-tool="nether" hidden>Calculate</button>
+    <div class="result" id="nether-out" hidden></div>
+    <p class="note">One Nether block equals 8 Overworld blocks, so X and Z are divided by 8 and rounded down. Y stays the same. The Nether is 0 to 127 blocks high.</p>
+  </section>
+
+  <!-- 4. Stack counter -->
+  <section class="page" id="stacks" hidden>
+    <div class="bar"><a class="back" href="#home">‹ Home</a><button class="clear" type="button">Clear</button></div>
+    <h2>Stack counter</h2>
+    <div class="seg" id="stack-size">
+      <button class="on" data-v="64" aria-pressed="true">Stacks of 64</button>
+      <button data-v="16" aria-pressed="false">Stacks of 16</button>
+    </div>
+    <div class="card">
+      <h3>Blocks to stacks</h3>
+      <input id="s-items" type="number" min="0" placeholder="Amount of blocks" aria-label="Amount of blocks">
+      <button class="go" data-tool="items" hidden>Calculate</button>
+      <p class="out" id="s-items-out"></p>
+    </div>
+    <div class="card">
+      <h3>Stacks to blocks</h3>
+      <input id="s-stacks" type="number" min="0" placeholder="Amount of stacks" aria-label="Amount of stacks">
+      <button class="go" data-tool="blocks" hidden>Calculate</button>
+      <p class="out" id="s-stacks-out"></p>
+    </div>
+  </section>
+
+  <!-- 5. Craft counter -->
+  <section class="page" id="craft" hidden>
+    <div class="bar"><a class="back" href="#home">‹ Home</a><button class="clear" type="button">Clear</button></div>
+    <h2>Craft counter</h2>
+    <div class="card">
+      <label for="c-item">What do you want to craft?</label>
+      <select id="c-item"></select>
+      <label for="c-qty">How many?</label>
+      <input id="c-qty" type="number" min="1" placeholder="Amount">
+    </div>
+    <button class="go" data-tool="craft" hidden>Calculate</button>
+    <div class="result" id="craft-out" hidden></div>
+    <p class="note">Wood recipes work with any planks. Raw materials count logs.</p>
+  </section>
+
+  <!-- 6. Calculator -->
+  <section class="page" id="calc" hidden>
+    <a class="back" href="#home">‹ Home</a>
+    <h2>Calculator</h2>
+    <div class="display"><div class="top"><button class="copy" type="button">Copy</button><small id="calc-expr"></small></div><output id="calc-val">0</output></div>
+    <div class="keys">
+      <button data-k="C" class="op">C</button><button data-k="⌫" class="op" aria-label="Delete">⌫</button><button data-k="%" class="op">%</button><button data-k="÷" class="op">÷</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button data-k="×" class="op">×</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="−" class="op">−</button>
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="+" class="op">+</button>
+      <button data-k="±">±</button><button data-k="0">0</button><button data-k=".">.</button><button data-k="=" class="eq">=</button>
+    </div>
+  </section>
+
+</main>
+<script>
+/* ---------- Helpers ---------- */
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('en-US');
+// Read a number input; returns null when it is empty or invalid
+const val = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
+// One "label ..... value" line inside a result card
+const row = (l, v) => `<p><span>${l}</span><b>${v}</b></p>`;
+const COPY = '<button class="copy" type="button">Copy</button>';
+// 100 blocks in stacks of 64 -> "1 stack + 36"
+const stk = (n, s = 64) => {
+  const a = Math.floor(n / s), r = n % s;
+  return `${fmt(a)} stack${a === 1 ? '' : 's'}` + (r ? ` + ${r}` : '');
+};
+// Segmented toggle: keeps the chosen value in el.dataset.v
+function seg(id, onChange) {
+  const el = $(id);
+  el.dataset.v = el.querySelector('.on').dataset.v;
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    el.querySelectorAll('button').forEach(x => {
+      x.classList.toggle('on', x === b);
+      x.setAttribute('aria-pressed', x === b);
+    });
+    el.dataset.v = b.dataset.v;
+    onChange();
+  });
+}
+
+/* ---------- Page routing (#home, #area, ...) ---------- */
+function route() {
+  const id = location.hash.slice(1);
+  const page = document.getElementById(id)?.classList.contains('page') ? id : 'home';
+  document.querySelectorAll('.page').forEach(p => p.hidden = p.id !== page);
+  window.scrollTo(0, 0);
+}
+
+/* ---------- 2. Area and block counter ---------- */
+function area() {
+  const v = ['x1', 'y1', 'z1', 'x2', 'y2', 'z2'].map(k => val('a-' + k));
+  const out = $('area-out');
+  if (v.some(n => n === null)) { out.hidden = true; return; }
+  const [x1, y1, z1, x2, y2, z2] = v.map(Math.floor);
+  // +1 because both the first and the last block are part of the area
+  const dx = Math.abs(x2 - x1) + 1, dy = Math.abs(y2 - y1) + 1, dz = Math.abs(z2 - z1) + 1;
+  const total = dx * dy * dz;
+  out.innerHTML =
+    row('Size (X × Y × Z)', `${fmt(dx)} × ${fmt(dy)} × ${fmt(dz)}`) +
+    row('Floor area (X × Z)', fmt(dx * dz)) +
+    row('Total blocks', fmt(total)) +
+    row('In stacks of 64', stk(total)) + COPY;
+  out.hidden = false;
+}
+
+/* ---------- 3. Nether coordinates ---------- */
+function nether() {
+  const up = $('nether-dir').dataset.v === 'up';
+  const [x, y, z] = ['x', 'y', 'z'].map(k => val('n-' + k));
+  const out = $('nether-out');
+  if ([x, y, z].some(n => n === null)) { out.hidden = true; return; }
+  // Overworld -> Nether: divide X and Z by 8, round down. Reverse: multiply by 8. Y never changes.
+  const conv = up ? n => Math.floor(n) * 8 : n => Math.floor(n / 8);
+  const outOfRange = !up && (y < 0 || y > 127);
+  out.innerHTML =
+    `<h4>${up ? 'Overworld' : 'Nether'} coordinates</h4>` +
+    row('X', fmt(conv(x))) + row('Y', fmt(Math.floor(y))) + row('Z', fmt(conv(z))) +
+    (outOfRange ? '<small class="warn">Y is outside the Nether height range (0 to 127).</small>' : '') + COPY;
+  out.hidden = false;
+}
+
+/* ---------- 4. Stack counter ---------- */
+const stackSize = () => +$('stack-size').dataset.v;
+function stackItems() { // blocks -> stacks
+  $('s-items-out').innerHTML = `<span>${stk(Math.floor(val('s-items')), stackSize())}</span>${COPY}`;
+}
+function stackBlocks() { // stacks -> blocks
+  $('s-stacks-out').innerHTML = `<span>${fmt(Math.floor(val('s-stacks')) * stackSize())} blocks</span>${COPY}`;
+}
+
+/* ---------- 5. Craft counter ---------- */
+// name: [items made per craft, { ingredient: amount per craft }]
+const RECIPES = {
+  'Planks': [4, { Logs: 1 }],
+  'Sticks': [4, { Planks: 2 }],
+  'Wooden Slab': [6, { Planks: 3 }],
+  'Wooden Stairs': [4, { Planks: 6 }],
+  'Fence': [3, { Planks: 4, Sticks: 2 }],
+  'Fence Gate': [1, { Planks: 2, Sticks: 4 }],
+  'Door': [3, { Planks: 6 }],
+  'Trapdoor': [2, { Planks: 6 }],
+  'Sign': [3, { Planks: 6, Sticks: 1 }],
+  'Boat': [1, { Planks: 5 }],
+  'Chest': [1, { Planks: 8 }],
+  'Crafting Table': [1, { Planks: 4 }],
+  'Ladder': [3, { Sticks: 7 }],
+  'Torch': [4, { Sticks: 1, Coal: 1 }],
+  'Stone Slab': [6, { Stone: 3 }],
+  'Stone Bricks': [4, { Stone: 4 }],
+  'Cobblestone Slab': [6, { Cobblestone: 3 }],
+  'Cobblestone Stairs': [4, { Cobblestone: 6 }],
+  'Cobblestone Wall': [6, { Cobblestone: 6 }],
+  'Furnace': [1, { Cobblestone: 8 }]
+};
+// Items that can be broken down further
+const SUB = { Planks: [4, { Logs: 1 }], Sticks: [4, { Planks: 2 }] };
+
+// Turn Sticks and Planks into Logs (sticks first, because they need planks)
+function raw(need) {
+  const o = { ...need };
+  for (const k of ['Sticks', 'Planks']) {
+    if (!o[k]) continue;
+    const [made, from] = SUB[k];
+    const crafts = Math.ceil(o[k] / made);
+    delete o[k];
+    for (const n in from) o[n] = (o[n] || 0) + from[n] * crafts;
+  }
+  return o;
+}
+const qty = a => a < 64 ? fmt(a) : `${fmt(a)} (${stk(a)})`;
+
+function craft() {
+  const q = val('c-qty'), out = $('craft-out');
+  if (!q || q < 1) { out.hidden = true; return; }
+  const [made, need] = RECIPES[$('c-item').value];
+  const crafts = Math.ceil(Math.floor(q) / made);
+  const direct = Object.fromEntries(Object.entries(need).map(([n, a]) => [n, a * crafts]));
+  const base = raw(direct);
+  const list = o => Object.entries(o).map(([n, a]) => row(n, qty(a))).join('');
+  out.innerHTML =
+    row('Crafts', `${fmt(crafts)} (makes ${fmt(crafts * made)})`) +
+    '<h4>Ingredients</h4>' + list(direct) +
+    (JSON.stringify(base) !== JSON.stringify(direct) ? '<h4>Raw materials</h4>' + list(base) : '') + COPY;
+  out.hidden = false;
+}
+
+/* ---------- 6. Calculator ---------- */
+// The whole sum is stored as tokens, e.g. ['9', '+', '4', '−', '2'], so it can be
+// shown side by side. The last token is the number you are typing (or an operator).
+const OPS = { '+': (a, b) => a + b, '−': (a, b) => a - b, '×': (a, b) => a * b, '÷': (a, b) => a / b };
+const isOp = t => t in OPS;
+const cal = { t: ['0'], done: false, expr: '' }; // done = an answer is on screen
+const calReset = () => Object.assign(cal, { t: ['0'], done: false, expr: '' });
+
+// Text for the display: ['9','+','-4'] -> "9 + (−4)"
+const show = (t, tidy) => t.map((x, i) => {
+  if (isOp(x)) return x; // operators (including −) are shown as they are
+  if (tidy) x = x.replace(/\.$/, '');
+  x = x.replace(/^-/, '−');
+  return i && x[0] === '−' ? `(${x})` : x;
+}).join(' ');
+
+// × and ÷ first, then + and − from left to right (no eval)
+function evaluate(t) {
+  const nums = [parseFloat(t[0])], ops = [];
+  for (let i = 1; i < t.length; i += 2) {
+    const op = t[i], n = parseFloat(t[i + 1]);
+    if (op === '×' || op === '÷') nums[nums.length - 1] = OPS[op](nums[nums.length - 1], n);
+    else { ops.push(op); nums.push(n); }
+  }
+  const r = ops.reduce((acc, op, i) => OPS[op](acc, nums[i + 1]), nums[0]);
+  return isFinite(r) ? String(+r.toPrecision(12)) : 'Error'; // toPrecision hides 0.1 + 0.2 float noise
+}
+
+function calcPress(k) {
+  if (cal.t[0] === 'Error') calReset();
+  const digit = /^[\d.]$/.test(k);
+  if (cal.done && digit) calReset(); // typing after an answer starts a new sum
+  const t = cal.t, n = t.length - 1;
+
+  if (digit) {
+    if (isOp(t[n])) t.push(k === '.' ? '0.' : k);
+    else if (k === '.') { if (!t[n].includes('.')) t[n] += '.'; }
+    else if (t[n] === '0') t[n] = k;
+    else if (t[n].replace(/\D/g, '').length < 14) t[n] += k;
+  } else if (k === 'C') {
+    calReset();
+  } else if (k === '⌫') {
+    if (cal.done) calReset();
+    else if (isOp(t[n]) || t[n].length === 1 || /^-\d$/.test(t[n])) { if (n > 0) t.pop(); else t[0] = '0'; }
+    else t[n] = t[n].slice(0, -1);
+  } else if (k === '±') {
+    if (!isOp(t[n]) && t[n] !== '0') t[n] = t[n][0] === '-' ? t[n].slice(1) : '-' + t[n];
+  } else if (k === '%') {
+    if (!isOp(t[n])) t[n] = String(+(parseFloat(t[n]) / 100).toPrecision(12));
+  } else if (k === '=') {
+    if (!cal.done) {
+      if (isOp(t[n])) t.pop(); // "9 +" then = ignores the dangling +
+      if (t.length > 1) { cal.expr = show(t, true) + ' ='; cal.t = [evaluate(t)]; cal.done = true; }
+    }
+  } else { // + − × ÷
+    cal.done = false; cal.expr = ''; // keep going from the answer
+    if (isOp(t[n])) t[n] = k; // changed your mind: swap the operator
+    else { t[n] = t[n].replace(/\.$/, ''); t.push(k); }
+  }
+
+  const out = $('calc-val');
+  out.textContent = show(cal.t);
+  $('calc-expr').textContent = cal.done ? cal.expr : '';
+  out.style.fontSize = out.textContent.length > 20 ? '1.4rem' : out.textContent.length > 11 ? '1.9rem' : '';
+  out.scrollLeft = out.scrollWidth; // keep the newest number in view
+}
+
+/* ---------- Wiring ---------- */
+$('c-item').innerHTML = Object.keys(RECIPES).map(n => `<option>${n}</option>`).join('');
+// Calculate buttons: `ready` = when the button appears, `run` = what it does
+const nonNeg = id => val(id) !== null && val(id) >= 0;
+const TOOLS = {
+  area:   { ready: () => ['x1', 'y1', 'z1', 'x2', 'y2', 'z2'].every(k => val('a-' + k) !== null), run: area },
+  nether: { ready: () => ['x', 'y', 'z'].every(k => val('n-' + k) !== null), run: nether },
+  items:  { ready: () => nonNeg('s-items'), run: stackItems },
+  blocks: { ready: () => nonNeg('s-stacks'), run: stackBlocks },
+  craft:  { ready: () => val('c-qty') >= 1, run: craft }
+};
+const refreshButtons = () =>
+  document.querySelectorAll('.go').forEach(b => b.hidden = !TOOLS[b.dataset.tool].ready());
+
+// Old answers are hidden as soon as an input changes
+function clearOutputs(scope) {
+  scope.querySelectorAll('.result').forEach(r => r.hidden = true);
+  scope.querySelectorAll('.out').forEach(o => o.textContent = '');
+}
+
+seg('nether-dir', () => {
+  $('nether-title').textContent = $('nether-dir').dataset.v === 'up' ? 'Nether coordinates' : 'Overworld coordinates';
+  clearOutputs($('nether'));
+  refreshButtons();
+});
+seg('stack-size', () => { clearOutputs($('stacks')); refreshButtons(); });
+
+// Clear: erase inputs, answers and go back to the default toggle / item
+function clearPage(page) {
+  page.querySelectorAll('input').forEach(i => i.value = '');
+  page.querySelectorAll('select').forEach(x => x.selectedIndex = 0);
+  page.querySelectorAll('.seg button:first-child').forEach(b => b.click());
+  clearOutputs(page);
+  refreshButtons();
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.clear');
+  if (b) clearPage(b.closest('.page'));
+});
+
+// Copy: plain text of the answer ("Total blocks: 1,000")
+function resultText(box) {
+  if (box.classList.contains('display')) return cal.done ? cal.t[0] : $('calc-val').textContent;
+  if (box.classList.contains('out')) return box.querySelector('span').textContent;
+  return [...box.children].filter(c => !c.matches('.copy')).map(c =>
+    c.matches('p') ? `${c.children[0].textContent}: ${c.children[1].textContent}` : c.textContent).join('\n');
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { // fallback for browsers that block the clipboard API
+    const a = document.createElement('textarea');
+    a.value = text; document.body.append(a); a.select(); document.execCommand('copy'); a.remove();
+  }
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('.copy');
+  if (!b) return;
+  await copyText(resultText(b.closest('.out, .result, .display')));
+  b.textContent = 'Copied';
+  setTimeout(() => b.textContent = 'Copy', 1500);
+});
+
+document.addEventListener('input', e => {
+  const page = e.target.closest('.page');
+  if (!page || page.id === 'calc') return;
+  const card = e.target.closest('.card');
+  clearOutputs(card && card.querySelector('.out') ? card : page);
+  refreshButtons();
+});
+
+// Show the answer only when Calculate is pressed (Enter in a field works too)
+document.addEventListener('click', e => {
+  const b = e.target.closest('.go');
+  if (b && !b.hidden) TOOLS[b.dataset.tool].run();
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target.matches('input')) return;
+  const b = e.target.closest('.card')?.querySelector('.go') || e.target.closest('.page')?.querySelector('.go');
+  if (b && !b.hidden) b.click();
+});
+
+$('calc').addEventListener('click', e => {
+  const b = e.target.closest('button[data-k]');
+  if (b) calcPress(b.dataset.k);
+});
+
+// Keyboard support for the calculator page
+const KEYS = { '*': '×', '/': '÷', '-': '−', Enter: '=', Backspace: '⌫', Escape: 'C' };
+addEventListener('keydown', e => {
+  if ($('calc').hidden || e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.copy')) return;
+  const k = KEYS[e.key] || e.key;
+  if (/^[\d.+−×÷=%C⌫]$/.test(k)) { e.preventDefault(); calcPress(k); }
+});
+
+addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
